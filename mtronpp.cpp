@@ -3,6 +3,7 @@
 #include <thread>
 
 #include <CImg.h>
+
 using namespace cimg_library;
 
 #include "timer.hpp"
@@ -49,10 +50,14 @@ double gm = -1;
 
 CImg<unsigned char> visu(1024,1024,1,3,0);
 const unsigned char
-    red[] = { 200,255,50 },
-    green[] = { 150,255,150 },
-    blue[] = { 50,255,200 },
+    lred[] = { 200,255,50 },
+    lgreen[] = { 150,255,150 },
+    lblue[] = { 50,255,200 },
+    red[] = { 255,0,0 },
+    green[] = { 0,255,0 },
+    blue[] = { 0,0,255 },
     grey[] = { 80,80,80 },
+    white[] = { 255,255,255 },
     yellow[] = { 255,255,0 };
 CImgDisplay disp(visu,"tube");
 
@@ -109,8 +114,10 @@ void draw_test_bits(int N)
         visu.draw_rectangle(i*DBW, 0,
                             (i+1)*DBW-2, 6,
                             c, 0.5);
-        if (i>0 && i%SVBW==0) {
-            visu.draw_circle(i*DBW-DBW/2, 10, 2, red, 0.5);
+        if (i%SVBW==0 && i>0) {
+            visu.draw_rectangle(i*DBW-1, 0,
+                                i*DBW+1, 8,
+                                white, 0.9);
         }
         ltb <<= 1;
     }
@@ -132,8 +139,6 @@ void reinit() {
     ob.clear();
     oc.clear();
 }
-
-CImg<unsigned char> box(4,4,1,1,1);
 
 int bit_from_mouse_x() {
     const int x = disp.mouse_x();
@@ -202,7 +207,7 @@ int main() {
                 case 2:
                     filler_sleep += direction ? 10 : -10; break;
                 case 4:
-                    maxodots += direction ? 10 : -10; break;
+                    maxodots += direction ? 100 : -100; break;
                 case 5:
                     gm += direction ? 0.1 : -0.1; break;
             }
@@ -225,9 +230,9 @@ int main() {
                 double o = (1-std::exp(-ii*gm/N))/(1-std::exp(-gm));
                 if (o<0) o = 0;
                 //if (i<100) o = 1;
-                drawdot(a.at(i).x, a.at(i).y, o, red);
-                drawdot(b.at(i).x, b.at(i).y, o, green);
-                drawdot(c.at(i).x, c.at(i).y, o, blue);
+                drawdot(a.at(i).x, a.at(i).y, o, lred);
+                drawdot(b.at(i).x, b.at(i).y, o, lgreen);
+                drawdot(c.at(i).x, c.at(i).y, o, lblue);
             }
             /*
             for (auto &p : a)
