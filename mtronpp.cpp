@@ -1,6 +1,7 @@
 #include <iostream>
 #include <deque>
 #include <thread>
+#include <mutex>
 
 #include <CImg.h>
 
@@ -8,45 +9,18 @@ using namespace cimg_library;
 
 #include "timer.hpp"
 
-// wget https://github.com/dtschump/CImg/raw/master/CImg.h
-// g++ -I. -Ofast -march=native mtronpp.cpp -o mtronpp -pthread -lX11
-
-// g++ -I. -Ofast -march=native -Dcimg_use_openmp=1 -fopenmp -ggdb3 mtronpp.cpp -o mtronpp -pthread -lX11
-
-/*
-https://www.masswerk.at/minskytron/
-https://www.masswerk.at/minskytron/minskytron-annotated.txt
-
-ya := ya + ((xa + xb) >> sh0) // sh0 = 1 + Test Word bits 0..2
-xa := xa – ((ya – yb) >> sh1) // sh1 = 1 + Test Word bits 3..5
-display a dot at xa | ya
-
-yb := yb + ((xb – xc) >> sh2) // sh2 = 1 + Test Word bits 6..8
-xb := xb – ((yb – yc) >> sh3) // sh3 = 1 + Test Word bits 9..11
-display a dot at xb | yb
-
-yc := yc + ((xc – xa) >> sh4) // sh4 = 1 + Test Word bits 12..14
-xc := xc – ((yc – ya) >> sh5) // sh5 = 1 + Test Word bits 15..17
-display a dot at xc | yc
-
-xa0,	dpy i 17770  // (730007 - 10000) + 17770 = 737777 = -0137016 (1's complement!)
-xb0,	0            // 0
-xc0,	and          // 020000
-ya0,	0            // 0
-yb0,	ior          // 060000
-yc0,	0            // 0
-*/
-
 struct odot {
-    int x, y;
-    odot(int _x, int _y) : x(_x), y(_y) {};
+    int ax, ay, bx, by, cx, cy;
 };
 
-std::deque<odot> oa, ob, oc;
+typedef std::deque<odot> osc_type;
+osc_type osc;//oa, ob, oc;
 
-int maxodots = 1024*6;
+std::mutex meh; // meh
+
+size_t maxodots = 1024*6;
 int filler_sleep = 100;
-double gm = -1;
+double gm = -2.5;
 
 CImg<unsigned char> visu(1024,1024,1,3,0);
 const unsigned char
@@ -86,7 +60,7 @@ int CSA = 1;
 #define SVBW 5
 
 // display bit rectangle width in pixels
-#define DBW 20
+#define DBW 24
 
 template<typename T>
 void drawdot(int x, int y, double o, T c) {
@@ -94,10 +68,10 @@ void drawdot(int x, int y, double o, T c) {
                     (y>>SB)+512,
                     c, o);
 
-    auto co = std::max(.0, o-0.3);
+    auto cc = std::max(.0, o-0.3);
     visu.draw_circle((x>>SB)+512,
                      (y>>SB)+512,
-                     1, c, co);
+                     1, c, cc);
 
 }
 
@@ -135,9 +109,11 @@ void reinit() {
     sh4 = ((tb >> SVBW*1) & 0b11111) + CSA;
     sh5 = ((tb >> SVBW*0) & 0b11111) + CSA;
 
-    oa.clear();
-    ob.clear();
-    oc.clear();
+    {
+        std::lock_guard<std::mutex> l(meh);
+        osc.clear();
+    }
+
 }
 
 int bit_from_mouse_x() {
@@ -149,7 +125,6 @@ int bit_from_mouse_x() {
 
 void dot_filler() {
     while (!disp.is_closed() && !disp.is_keyESC()) {
-
         ya += (xa + xb) >> sh0;
         xa -= (ya - yb) >> sh1;
 
@@ -159,14 +134,12 @@ void dot_filler() {
         yc += (xc - xa) >> sh4;
         xc -= (yc - ya) >> sh5;
 
-        oa.emplace_back(xa, ya);
-        ob.emplace_back(xb, yb);
-        oc.emplace_back(xc, yc);
+        {
+            std::lock_guard<std::mutex> l(meh);
+            osc.emplace_back(odot{xa, ya, xb, yb, xc, yc});
 
-        while (oa.size() > maxodots) {
-            oa.pop_front();
-            ob.pop_front();
-            oc.pop_front();
+            if (osc.size() > maxodots)
+                osc.erase(osc.begin(), osc.end() - maxodots);
         }
 
         usleep(filler_sleep);
@@ -187,8 +160,6 @@ int main() {
     std::thread filler(dot_filler);
 
     while (!disp.is_closed() && !disp.is_keyESC()) {
-        Timer ft;
-        //main_disp.wait();
         b = disp.button()&1;
         if ( oldb > b && disp.mouse_y()>=0) {
             tb ^= (1<<bit_from_mouse_x());
@@ -216,33 +187,27 @@ int main() {
         }
 
 
-        if (t.get() > 1./60.) {
-            auto a = oa, b = ob, c = oc;
-
-            unsigned s = std::min(a.size(), std::min(b.size(), c.size()));
+        osc_type _osc;
+        if (t.get() > 1./60.) { // ~60 fps
+            {
+                std::lock_guard<std::mutex> l(meh);
+                _osc = osc;
+            }
 
             visu.fill(0);
-            //visu = visu.blur_box(2, 1);
-            //visu = visu.blur_median(2, 2);
-            for (unsigned i = 0; i < s; i++) {
-                double N = s;
-                double ii = i;
-                double o = (1-std::exp(-ii*gm/N))/(1-std::exp(-gm));
-                if (o<0) o = 0;
-                //if (i<100) o = 1;
-                drawdot(a.at(i).x, a.at(i).y, o, lred);
-                drawdot(b.at(i).x, b.at(i).y, o, lgreen);
-                drawdot(c.at(i).x, c.at(i).y, o, lblue);
+            const double N = _osc.size();
+            double i = 0;
+
+            for (auto & oi : _osc) {
+                double o = (1-std::exp(-i*gm/N))/(1-std::exp(-gm));
+                if (o<0) o=0;
+
+                drawdot(oi.ax, oi.ay, o, lred);
+                drawdot(oi.bx, oi.by, o, lgreen);
+                drawdot(oi.cx, oi.cy, o, lblue);
+                ++i;
             }
-            /*
-            for (auto &p : a)
-                drawdot(p.x, p.y, red);
-            for (auto &p : b)
-                drawdot(p.x, p.y, green);
-            for (auto &p : c)
-                drawdot(p.x, p.y, blue);
-            */
-            //visu /= d;
+
             draw_test_bits(6*SVBW);
 
             //sprintf(text, "CSA:%d filler_sleep:%d maxodots:%d", CSA, filler_sleep, maxodots);
