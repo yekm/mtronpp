@@ -2,6 +2,7 @@
 #include <deque>
 #include <thread>
 #include <mutex>
+#include <bitset>
 
 #include <CImg.h>
 
@@ -22,8 +23,8 @@ size_t maxodots = 1024*6;
 int filler_sleep = 100;
 double gm = -2.5;
 
-#define W 1920
-#define H 1080
+#define W 1024
+#define H 1024
 
 CImg<unsigned char> visu(W,H,1,3,0);
 const unsigned char
@@ -41,8 +42,9 @@ CImgDisplay disp(visu,"tube");
 //unsigned int tb = 0b011000111001110011100010000010;
 //unsigned int tb = 0b001100011100111001110001000001; // original
   unsigned int tb = 0b001110011100111001110001000001;
+//unsigned int tb = 0b000110001100111001110001000010; // alt1
 //unsigned int tb = 0b001100010100011001110001100001;
-//                  ....5....5....5....5....5....5
+//                    ....|....|....|....|....|....|
 
 int ya, xa, yb, xb, yc, xc;
 
@@ -115,6 +117,10 @@ void reinit() {
     ya=0; xa=0737777<<ICM;
     yb=060000<<ICM; xb=0;
     yc=0; xc=020000<<ICM;
+
+    std::bitset<30> t(tb);
+    std::cout << t << std::endl;
+
     auto mask = ~(~unsigned(0) << SVBW);
     sh0 = ((tb >> SVBW*5) & mask) + CSA;
     sh1 = ((tb >> SVBW*4) & mask) + CSA;
