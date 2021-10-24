@@ -1,6 +1,8 @@
 ### About
 32 bit clone of PDP-1 Minskytron
 
+https://user-images.githubusercontent.com/205196/138595041-acab835e-a191-4406-b39b-f67ac2b53a6e.mp4
+
 https://www.masswerk.at/minskytron/
 
 https://www.masswerk.at/minskytron/minskytron-annotated.txt
