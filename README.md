@@ -18,6 +18,8 @@ g++ -I. -Ofast -march=native -Dcimg_use_openmp=1 -fopenmp -ggdb3 tronpp.cpp -o m
 
 ### dwitter
 
+https://beta.dwitter.net/d/26514
+
 Saved one byte by making canvas size 512 pixel in width instead of 1024.
 
 Thanks to https://adroitwhiz.github.io/js-unicode-compressor/
